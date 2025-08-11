@@ -32,6 +32,6 @@ Simple CRUD application for Products (ID, Name, Price) using:
 
 ## Status
 
-🔧 Currently debugging 500 error - detailed error pages enabled for diagnosis.
+� Deploying fix: EF initial migration added; app will auto-apply.
 
-Trigger deployment: 2025-01-11 update !
+Trigger deployment: 2025-08-11 15:59 UTC
