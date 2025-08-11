@@ -308,18 +308,62 @@ resource "aws_instance" "web" {
   user_data = <<-POWERSHELL
               <powershell>
               $ErrorActionPreference = 'Stop'
-              # Enable IIS
+              # Enable IIS and ASP.NET features
               Install-WindowsFeature Web-Server
+              Install-WindowsFeature Web-Asp-Net45
+              Install-WindowsFeature Web-Net-Ext45
 
-              # Install .NET Core Hosting Bundle (ASP.NET Core runtime)
-              $bundleUrl = "https://download.visualstudio.microsoft.com/download/pr/197f8b44-8dae-4b0a-8a51-2c9ba902eaa6/1d4a3a4f2a937e83d48a11cd2d7f7d87/dotnet-hosting-8.0.5-win.exe"
-              Invoke-WebRequest -Uri $bundleUrl -OutFile C:\\Temp\\dotnet-hosting.exe
-              Start-Process -FilePath C:\\Temp\\dotnet-hosting.exe -ArgumentList "/quiet" -Wait
+              # Create temp directory
+              New-Item -ItemType Directory -Force -Path C:\\Temp | Out-Null
+
+              # Install .NET 8 Runtime with retry logic
+              $maxRetries = 3
+              $retryCount = 0
+              $success = $false
+
+              while (-not $success -and $retryCount -lt $maxRetries) {
+                  try {
+                      Write-Host "Attempting .NET 8 Runtime download (attempt $($retryCount + 1))"
+                      $runtimeUrl = "https://download.visualstudio.microsoft.com/download/pr/907765b0-2bf8-494e-93aa-5ef9553c5d68/a9308dc010617e6716c0e6abd53b05ce/dotnet-runtime-8.0.8-win-x64.exe"
+                      Invoke-WebRequest -Uri $runtimeUrl -OutFile C:\\Temp\\dotnet-runtime.exe -UseBasicParsing
+                      Start-Process -FilePath C:\\Temp\\dotnet-runtime.exe -ArgumentList "/quiet" -Wait
+                      Write-Host ".NET Runtime installed successfully"
+                      $success = $true
+                  } catch {
+                      Write-Host "Runtime download failed: $($_.Exception.Message)"
+                      $retryCount++
+                      Start-Sleep -Seconds 10
+                  }
+              }
+
+              # Install ASP.NET Core Runtime with retry logic
+              $retryCount = 0
+              $success = $false
+
+              while (-not $success -and $retryCount -lt $maxRetries) {
+                  try {
+                      Write-Host "Attempting ASP.NET Core Runtime download (attempt $($retryCount + 1))"
+                      $aspnetUrl = "https://download.visualstudio.microsoft.com/download/pr/e9acb1f4-5d2e-4d9f-b5cb-ac5ea5d2332b/7eb2b7b5c1b1e5b5e5b5e5b5e5b5e5b5/aspnetcore-runtime-8.0.8-win-x64.exe"
+                      Invoke-WebRequest -Uri $aspnetUrl -OutFile C:\\Temp\\aspnetcore-runtime.exe -UseBasicParsing
+                      Start-Process -FilePath C:\\Temp\\aspnetcore-runtime.exe -ArgumentList "/quiet" -Wait
+                      Write-Host "ASP.NET Core Runtime installed successfully"
+                      $success = $true
+                  } catch {
+                      Write-Host "ASP.NET Core Runtime download failed: $($_.Exception.Message)"
+                      $retryCount++
+                      Start-Sleep -Seconds 10
+                  }
+              }
 
               # Install AWS CLI v2
-              Invoke-WebRequest -Uri https://awscli.amazonaws.com/AWSCLIV2.msi -OutFile C:\\Temp\\AWSCLIV2.msi
-              Start-Process msiexec.exe -ArgumentList "/i C:\\Temp\\AWSCLIV2.msi /qn /norestart" -Wait
-              $env:Path += ";C:\\Program Files\\Amazon\\AWSCLIV2\\"
+              try {
+                  Invoke-WebRequest -Uri https://awscli.amazonaws.com/AWSCLIV2.msi -OutFile C:\\Temp\\AWSCLIV2.msi -UseBasicParsing
+                  Start-Process msiexec.exe -ArgumentList "/i C:\\Temp\\AWSCLIV2.msi /qn /norestart" -Wait
+                  $env:Path += ";C:\\Program Files\\Amazon\\AWSCLIV2\\"
+                  Write-Host "AWS CLI installed successfully"
+              } catch {
+                  Write-Host "AWS CLI installation failed: $($_.Exception.Message)"
+              }
 
               # Place deploy script
               New-Item -ItemType Directory -Force -Path C:\\deploy | Out-Null
