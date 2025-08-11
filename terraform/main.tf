@@ -314,7 +314,8 @@ resource "aws_instance" "web" {
 
               # Install AWS CLI v2
               Invoke-WebRequest -Uri https://awscli.amazonaws.com/AWSCLIV2.msi -OutFile C:\\Temp\\AWSCLIV2.msi
-              Start-Process msiexec.exe -ArgumentList "/i C:\\Temp\\AWSCLIV2.msi /qn" -Wait
+              Start-Process msiexec.exe -ArgumentList "/i C:\\Temp\\AWSCLIV2.msi /qn /norestart" -Wait
+              $env:Path += ";C:\\Program Files\\Amazon\\AWSCLIV2\\"
 
               # Place deploy script
               New-Item -ItemType Directory -Force -Path C:\\deploy | Out-Null

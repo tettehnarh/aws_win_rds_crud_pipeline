@@ -48,12 +48,18 @@ jobs:
           SSM_PREFIX="/app/${PROJECT_NAME}-${AWS_REGION}"
           INSTANCE_ID=$(aws ssm get-parameter --name "$SSM_PREFIX/ec2/instance-id" --query "Parameter.Value" --output text)
           ARTIFACT_BUCKET=$(aws ssm get-parameter --name "$SSM_PREFIX/artifacts/bucket" --query "Parameter.Value" --output text)
+          COMMANDS=$(cat <<EOF
+          [
+            "New-Item -ItemType Directory -Force -Path C:\\deploy | Out-Null",
+            "\"C:\\Program Files\\Amazon\\AWSCLIV2\\aws.exe\" s3 cp s3://${ARTIFACT_BUCKET}/latest/deploy.ps1 C:\\deploy\\deploy.ps1",
+            "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\deploy\\deploy.ps1 -Prefix \"${SSM_PREFIX}\" -ProjectName \"${PROJECT_NAME}\" -Region \"${AWS_REGION}\""
+          ]
+          EOF
+          )
           aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunPowerShellScript" \
-            --parameters commands='[
-              "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$bucket=\"'"$ARTIFACT_BUCKET"'\"; New-Item -ItemType Directory -Force -Path C:\\deploy | Out-Null; aws s3 cp s3://$bucket/latest/deploy.ps1 C:\\deploy\\deploy.ps1; powershell -NoProfile -ExecutionPolicy Bypass -File C:\\deploy\\deploy.ps1 -Prefix \"'"$SSM_PREFIX"'\" -ProjectName \"'"$PROJECT_NAME"'\" -Region \"'"$AWS_REGION"'\"\""
-            ]' \
+            --parameters "commands=${COMMANDS}" \
       - name: Wait for SSM command to complete
         run: |
           SSM_PREFIX="/app/${PROJECT_NAME}-${AWS_REGION}"
