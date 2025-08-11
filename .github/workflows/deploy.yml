@@ -1,0 +1,56 @@
+name: Build and Deploy to AWS Windows via SSM
+
+on:
+  push:
+    branches: ["main"]
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  PROJECT_NAME: aws-win-rds-crud
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore app/aws_win_rds_crud
+
+      - name: Build
+        run: dotnet publish app/aws_win_rds_crud -c Release -o ./publish
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_GITHUB_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Upload artifact to S3
+        run: |
+          SSM_PREFIX="/app/${PROJECT_NAME}-${AWS_REGION}"
+          ARTIFACT_BUCKET=$(aws ssm get-parameter --name "$SSM_PREFIX/artifacts/bucket" --query "Parameter.Value" --output text)
+          aws s3 cp ./publish s3://${ARTIFACT_BUCKET}/latest/ --recursive
+
+      - name: Trigger SSM deployment on EC2
+        run: |
+          SSM_PREFIX="/app/${PROJECT_NAME}-${AWS_REGION}"
+          INSTANCE_ID=$(aws ssm get-parameter --name "$SSM_PREFIX/ec2/instance-id" --query "Parameter.Value" --output text)
+          aws ssm send-command \
+            --instance-ids "$INSTANCE_ID" \
+            --document-name "AWS-RunPowerShellScript" \
+            --parameters commands='[
+              "powershell -Command \"$prefix=/app/${PROJECT_NAME}-${AWS_REGION};$bucket=(aws ssm get-parameter --name $prefix/artifacts/bucket --query Parameter.Value --output text);$rds=(aws ssm get-parameter --name $prefix/db/endpoint --query Parameter.Value --output text);$db=(aws ssm get-parameter --name $prefix/db/name --query Parameter.Value --output text);$user=(aws ssm get-parameter --name $prefix/db/username --query Parameter.Value --output text);$pwd=(aws secretsmanager get-secret-value --secret-id ${PROJECT_NAME}-${AWS_REGION}/db/password --query SecretString --output text); New-Item -ItemType Directory -Force -Path C:\\deploy; aws s3 cp s3://$bucket/latest/ C:\\deploy\\app/ --recursive; [Environment]::SetEnvironmentVariable(\"APP_DB_CONNECTION\", \"Server=$rds;Database=$db;User Id=$user;Password=$pwd;TrustServerCertificate=True;\", \"Machine\"); Import-Module WebAdministration; if (-Not (Test-Path C:\\inetpub\\app)) { New-Item -ItemType Directory -Force -Path C:\\inetpub\\app }; Copy-Item -Path C:\\deploy\\app\\* -Destination C:\\inetpub\\app -Recurse -Force; Restart-WebAppPool -Name AppPool; Restart-Service W3SVC\""
+            ]' \
+            --comment "Deploy latest build"
+

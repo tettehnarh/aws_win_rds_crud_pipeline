@@ -1,0 +1,18 @@
+@page
+@model aws_win_rds_crud.Pages.CreateModel
+@{
+    ViewData["Title"] = "Create";
+}
+<h1>Create</h1>
+<form method="post">
+    <div>
+        <label>Name</label>
+        <input asp-for="Product.Name" />
+    </div>
+    <div>
+        <label>Price</label>
+        <input asp-for="Product.Price" />
+    </div>
+    <button type="submit">Save</button>
+</form>
+

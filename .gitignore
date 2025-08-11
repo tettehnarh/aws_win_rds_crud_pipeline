@@ -1,0 +1,37 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors/IDE
+.vscode/
+.vs/
+.idea/
+
+# .NET build artifacts
+**/bin/
+**/obj/
+# Local publish output
+publish/
+
+# Logs
+*.log
+
+# Environment files
+.env
+
+# Terraform
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/crash.log
+terraform/crash.*.log
+terraform/override.tf
+terraform/override.tf.json
+terraform/*_override.tf
+terraform/*_override.tf.json
+# Keep lock file in VCS for provider consistency
+# !terraform/.terraform.lock.hcl (do not ignore)
+
+# Node (in case any tooling is added later)
+node_modules/
+
