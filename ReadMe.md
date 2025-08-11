@@ -34,4 +34,4 @@ Simple CRUD application for Products (ID, Name, Price) using:
 
 � Deploying fix: EF initial migration added; app will auto-apply.
 
-Trigger deployment: 2025-08-11 15:59 UTC
+Trigger deployment: 2025-08-11 15:59 UTC !
