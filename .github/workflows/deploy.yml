@@ -36,24 +36,24 @@ jobs:
           role-to-assume: ${{ secrets.AWS_GITHUB_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Upload artifact to S3
+      - name: Upload artifact and deploy script to S3
         run: |
           SSM_PREFIX="/app/${PROJECT_NAME}-${AWS_REGION}"
           ARTIFACT_BUCKET=$(aws ssm get-parameter --name "$SSM_PREFIX/artifacts/bucket" --query "Parameter.Value" --output text)
           aws s3 cp ./publish s3://${ARTIFACT_BUCKET}/latest/ --recursive
+          aws s3 cp ./scripts/deploy.ps1 s3://${ARTIFACT_BUCKET}/latest/deploy.ps1
 
-      - name: Trigger SSM deployment on EC2 (script)
+      - name: Trigger SSM deployment on EC2 (download script + run)
         run: |
           SSM_PREFIX="/app/${PROJECT_NAME}-${AWS_REGION}"
           INSTANCE_ID=$(aws ssm get-parameter --name "$SSM_PREFIX/ec2/instance-id" --query "Parameter.Value" --output text)
+          ARTIFACT_BUCKET=$(aws ssm get-parameter --name "$SSM_PREFIX/artifacts/bucket" --query "Parameter.Value" --output text)
           aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunPowerShellScript" \
             --parameters commands='[
-              "powershell -ExecutionPolicy Bypass -File C:\\deploy\\deploy.ps1 -Prefix \"'"$SSM_PREFIX"'\" -ProjectName \"'"$PROJECT_NAME"'\" -Region \"'"$AWS_REGION"'\""
+              "powershell -NoProfile -ExecutionPolicy Bypass -Command \"$bucket=\"'"$ARTIFACT_BUCKET"'\"; New-Item -ItemType Directory -Force -Path C:\\deploy | Out-Null; aws s3 cp s3://$bucket/latest/deploy.ps1 C:\\deploy\\deploy.ps1; powershell -NoProfile -ExecutionPolicy Bypass -File C:\\deploy\\deploy.ps1 -Prefix \"'"$SSM_PREFIX"'\" -ProjectName \"'"$PROJECT_NAME"'\" -Region \"'"$AWS_REGION"'\"\""
             ]' \
-            --comment "Deploy latest build (script)"
-
       - name: Wait for SSM command to complete
         run: |
           SSM_PREFIX="/app/${PROJECT_NAME}-${AWS_REGION}"
