@@ -54,9 +54,10 @@ jobs:
             --document-name "AWS-RunPowerShellScript" \
             --parameters commands='[
               "New-Item -ItemType Directory -Force -Path C:\\deploy | Out-Null",
-              "if (-Not (Test-Path \"C:\\Program Files\\Amazon\\AWSCLIV2\\aws.exe\")) { Invoke-WebRequest -Uri https://awscli.amazonaws.com/AWSCLIV2.msi -OutFile C:\\Temp\\AWSCLIV2.msi; Start-Process msiexec.exe -ArgumentList \"/i C:\\Temp\\AWSCLIV2.msi /qn /norestart\" -Wait }",
-              "& \"C:\\Program Files\\Amazon\\AWSCLIV2\\aws.exe\" s3 cp s3://'${ARTIFACT_BUCKET}'/latest/deploy.ps1 C:\\deploy\\deploy.ps1",
-              "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\deploy\\deploy.ps1 -Prefix \"'${SSM_PREFIX}'\" -ProjectName \"'${PROJECT_NAME}'\" -Region \"'${AWS_REGION}'\""
+              "New-Item -ItemType Directory -Force -Path C:\\Temp | Out-Null",
+              "if (-Not (Test-Path \"C:\\Program Files\\Amazon\\AWSCLIV2\\aws.exe\")) { Write-Host \"Installing AWS CLI...\"; Invoke-WebRequest -Uri https://awscli.amazonaws.com/AWSCLIV2.msi -OutFile C:\\Temp\\AWSCLIV2.msi; Start-Process msiexec.exe -ArgumentList \"/i C:\\Temp\\AWSCLIV2.msi /qn /norestart\" -Wait; Write-Host \"AWS CLI installation complete\" }",
+              "Write-Host \"Downloading deploy script...\"; & \"C:\\Program Files\\Amazon\\AWSCLIV2\\aws.exe\" s3 cp s3://'${ARTIFACT_BUCKET}'/latest/deploy.ps1 C:\\deploy\\deploy.ps1",
+              "Write-Host \"Running deploy script...\"; powershell -NoProfile -ExecutionPolicy Bypass -File C:\\deploy\\deploy.ps1 -Prefix \"'${SSM_PREFIX}'\" -ProjectName \"'${PROJECT_NAME}'\" -Region \"'${AWS_REGION}'\""
             ]' \
             --query 'Command.CommandId' --output text)
           echo "CMD_ID=$CMD_ID" >> $GITHUB_ENV
