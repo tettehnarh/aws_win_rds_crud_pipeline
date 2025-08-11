@@ -27,6 +27,9 @@ jobs:
       - name: Restore
         run: dotnet restore app/aws_win_rds_crud
 
+      - name: Add EF tools
+        run: dotnet tool update --global dotnet-ef
+
       - name: Build
         run: dotnet publish app/aws_win_rds_crud -c Release -o ./publish
 

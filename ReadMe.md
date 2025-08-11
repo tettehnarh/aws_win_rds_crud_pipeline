@@ -34,4 +34,4 @@ Simple CRUD application for Products (ID, Name, Price) using:
 
 🔧 Currently debugging 500 error - detailed error pages enabled for diagnosis.
 
-Trigger deployment: 2025-01-11 update
+Trigger deployment: 2025-01-11 update !
