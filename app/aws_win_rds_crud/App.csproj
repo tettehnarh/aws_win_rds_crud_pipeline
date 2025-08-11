@@ -11,5 +11,9 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="Pages\**\*.cshtml" CopyToPublishDirectory="Always" />
+    <Content Include="Migrations\**\*" CopyToPublishDirectory="Always" />
+  </ItemGroup>
 </Project>
 
