@@ -217,8 +217,12 @@ resource "aws_lb_target_group" "app" {
   vpc_id      = module.vpc.vpc_id
   target_type = "instance"
   health_check {
-    path    = "/"
-    matcher = "200"
+    path                = "/"
+    matcher             = "200-399"
+    interval            = 30
+    timeout             = 5
+    healthy_threshold   = 2
+    unhealthy_threshold = 3
   }
 }
 
