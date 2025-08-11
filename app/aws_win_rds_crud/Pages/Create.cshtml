@@ -5,14 +5,16 @@
 }
 <h1>Create</h1>
 <form method="post">
+    @Html.AntiForgeryToken()
     <div>
-        <label>Name</label>
+        <label asp-for="Product.Name"></label>
         <input asp-for="Product.Name" />
+        <span asp-validation-for="Product.Name"></span>
     </div>
     <div>
-        <label>Price</label>
+        <label asp-for="Product.Price"></label>
         <input asp-for="Product.Price" />
+        <span asp-validation-for="Product.Price"></span>
     </div>
     <button type="submit">Save</button>
 </form>
-
