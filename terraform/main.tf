@@ -431,7 +431,7 @@ data "aws_iam_policy_document" "github_actions" {
     ]
   }
   statement {
-    actions   = ["ssm:SendCommand", "ssm:GetParameter", "ssm:GetParameters"]
+    actions   = ["ssm:SendCommand", "ssm:GetParameter", "ssm:GetParameters", "ssm:GetCommandInvocation"]
     resources = ["*"]
   }
   statement {
