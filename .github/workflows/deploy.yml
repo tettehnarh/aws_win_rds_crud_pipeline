@@ -48,24 +48,28 @@ jobs:
           SSM_PREFIX="/app/${PROJECT_NAME}-${AWS_REGION}"
           INSTANCE_ID=$(aws ssm get-parameter --name "$SSM_PREFIX/ec2/instance-id" --query "Parameter.Value" --output text)
           ARTIFACT_BUCKET=$(aws ssm get-parameter --name "$SSM_PREFIX/artifacts/bucket" --query "Parameter.Value" --output text)
-          COMMANDS=$(cat <<EOF
+          COMMANDS=$(cat <<'EOF'
           [
             "New-Item -ItemType Directory -Force -Path C:\\deploy | Out-Null",
+            "if (-Not (Test-Path 'C:\\Program Files\\Amazon\\AWSCLIV2\\aws.exe')) { Invoke-WebRequest -Uri https://awscli.amazonaws.com/AWSCLIV2.msi -OutFile C:\\Temp\\AWSCLIV2.msi; Start-Process msiexec.exe -ArgumentList '/i C:\\Temp\\AWSCLIV2.msi /qn /norestart' -Wait }",
             "\"C:\\Program Files\\Amazon\\AWSCLIV2\\aws.exe\" s3 cp s3://${ARTIFACT_BUCKET}/latest/deploy.ps1 C:\\deploy\\deploy.ps1",
             "powershell -NoProfile -ExecutionPolicy Bypass -File C:\\deploy\\deploy.ps1 -Prefix \"${SSM_PREFIX}\" -ProjectName \"${PROJECT_NAME}\" -Region \"${AWS_REGION}\""
           ]
           EOF
           )
-          aws ssm send-command \
+          CMD_ID=$(aws ssm send-command \
             --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunPowerShellScript" \
             --parameters "commands=${COMMANDS}" \
+            --query 'Command.CommandId' --output text)
+          echo "CMD_ID=$CMD_ID" >> $GITHUB_ENV
+
       - name: Wait for SSM command to complete
+        if: always()
         run: |
           SSM_PREFIX="/app/${PROJECT_NAME}-${AWS_REGION}"
           INSTANCE_ID=$(aws ssm get-parameter --name "$SSM_PREFIX/ec2/instance-id" --query "Parameter.Value" --output text)
-          CMD_ID=$(aws ssm list-commands --instance-id "$INSTANCE_ID" --query 'Commands[0].CommandId' --output text)
           echo "Waiting for SSM Command $CMD_ID"
-          aws ssm wait command-executed --command-id "$CMD_ID" --instance-id "$INSTANCE_ID"
-          aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" --query '{Status:Status,StdOut:StandardOutputContent,StdErr:StandardErrorContent}' --output table
+          aws ssm wait command-executed --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" || true
+          aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" --query '{Status:Status,StdOut:StandardOutputContent,StdErr:StandardErrorContent}' --output table || true
 
