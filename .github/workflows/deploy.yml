@@ -42,7 +42,7 @@ jobs:
           ARTIFACT_BUCKET=$(aws ssm get-parameter --name "$SSM_PREFIX/artifacts/bucket" --query "Parameter.Value" --output text)
           aws s3 cp ./publish s3://${ARTIFACT_BUCKET}/latest/ --recursive
 
-      - name: Trigger SSM deployment on EC2
+      - name: Trigger SSM deployment on EC2 (script)
         run: |
           SSM_PREFIX="/app/${PROJECT_NAME}-${AWS_REGION}"
           INSTANCE_ID=$(aws ssm get-parameter --name "$SSM_PREFIX/ec2/instance-id" --query "Parameter.Value" --output text)
@@ -50,7 +50,16 @@ jobs:
             --instance-ids "$INSTANCE_ID" \
             --document-name "AWS-RunPowerShellScript" \
             --parameters commands='[
-              "powershell -Command \"$prefix=/app/${PROJECT_NAME}-${AWS_REGION};$bucket=(aws ssm get-parameter --name $prefix/artifacts/bucket --query Parameter.Value --output text);$rds=(aws ssm get-parameter --name $prefix/db/endpoint --query Parameter.Value --output text);$db=(aws ssm get-parameter --name $prefix/db/name --query Parameter.Value --output text);$user=(aws ssm get-parameter --name $prefix/db/username --query Parameter.Value --output text);$pwd=(aws secretsmanager get-secret-value --secret-id ${PROJECT_NAME}-${AWS_REGION}/db/password --query SecretString --output text); New-Item -ItemType Directory -Force -Path C:\\deploy; aws s3 cp s3://$bucket/latest/ C:\\deploy\\app/ --recursive; [Environment]::SetEnvironmentVariable(\"APP_DB_CONNECTION\", \"Server=$rds;Database=$db;User Id=$user;Password=$pwd;TrustServerCertificate=True;\", \"Machine\"); Import-Module WebAdministration; if (-Not (Test-Path C:\\inetpub\\app)) { New-Item -ItemType Directory -Force -Path C:\\inetpub\\app }; Copy-Item -Path C:\\deploy\\app\\* -Destination C:\\inetpub\\app -Recurse -Force; Restart-WebAppPool -Name AppPool; Restart-Service W3SVC\""
+              "powershell -ExecutionPolicy Bypass -File C:\\deploy\\deploy.ps1 -Prefix \"'"$SSM_PREFIX"'\" -ProjectName \"'"$PROJECT_NAME"'\" -Region \"'"$AWS_REGION"'\""
             ]' \
-            --comment "Deploy latest build"
+            --comment "Deploy latest build (script)"
+
+      - name: Wait for SSM command to complete
+        run: |
+          SSM_PREFIX="/app/${PROJECT_NAME}-${AWS_REGION}"
+          INSTANCE_ID=$(aws ssm get-parameter --name "$SSM_PREFIX/ec2/instance-id" --query "Parameter.Value" --output text)
+          CMD_ID=$(aws ssm list-commands --instance-id "$INSTANCE_ID" --query 'Commands[0].CommandId' --output text)
+          echo "Waiting for SSM Command $CMD_ID"
+          aws ssm wait command-executed --command-id "$CMD_ID" --instance-id "$INSTANCE_ID"
+          aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$INSTANCE_ID" --query '{Status:Status,StdOut:StandardOutputContent,StdErr:StandardErrorContent}' --output table
 
